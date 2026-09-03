@@ -26,6 +26,14 @@ const float TURN_ALIGN_FRONT_WALL_CM = 1.0;
 // Advance forward after 90-degree turn to enter the new corridor before reading sensors
 const float POST_TURN_FORWARD_CM     = 10.0;
 
+// ===== SIDE WALL EMERGENCY CLEARANCE =====
+// If either side sensor reads less than this, the robot is too close and will correct
+const float MIN_WALL_CLEARANCE_CM  = 5.0;  // Minimum safe gap from left/right walls (cm)
+// Correction rotation in degrees when too close to a side wall
+const float WALL_CORRECTION_DEG    = 8.0;  // Rotate 8 degrees away from wall
+// Encoder counts for 8 degree correction: (8/90) * 520 = ~46 counts
+const long  COUNTS_FOR_CORRECTION  = (long)((WALL_CORRECTION_DEG / 90.0f) * COUNTS_FOR_90_DEG);
+
 // ===== MAZE & SENSOR SETTINGS =====
 // Distance < 15.0 cm: WALL / BLOCKED
 // Distance >= 15.0 cm: OPEN
@@ -605,6 +613,59 @@ void printSensorDiagnostic() {
 }
 
 // =====================================================
+// SIDE WALL CLEARANCE SAFETY CHECK
+// =====================================================
+
+// Called before each autonomous step.
+// If the robot is too close to the left or right wall (< MIN_WALL_CLEARANCE_CM),
+// it rotates 8 degrees away from the wall to restore safe clearance.
+void checkSideWallClearance() {
+    bool lValid = false, rValid = false;
+    float distL = readSensorDistanceCm(sensorLeft,  leftOK,  "Left",  lValid);
+    float distR = readSensorDistanceCm(sensorRight, rightOK, "Right", rValid);
+
+    bool tooCloseLeft  = lValid && distL < MIN_WALL_CLEARANCE_CM && distL >= 0;
+    bool tooCloseRight = rValid && distR < MIN_WALL_CLEARANCE_CM && distR >= 0;
+
+    if (tooCloseLeft && tooCloseRight) {
+        // Both sides too close: shouldn't normally happen, skip correction
+        Serial.print("  [CLEARANCE] Both sides <");
+        Serial.print(MIN_WALL_CLEARANCE_CM, 1);
+        Serial.println(" cm - corridor too narrow, skipping correction.");
+        return;
+    }
+
+    if (tooCloseLeft) {
+        // Too close to LEFT wall -> rotate slightly RIGHT to back away
+        Serial.print("  [CLEARANCE WARNING] LEFT wall too close: ");
+        Serial.print(distL, 1);
+        Serial.print(" cm (min: ");
+        Serial.print(MIN_WALL_CLEARANCE_CM, 1);
+        Serial.print(" cm) --> Rotating ");
+        Serial.print(WALL_CORRECTION_DEG, 1);
+        Serial.println(" deg RIGHT to correct...");
+        rotateCounts(COUNTS_FOR_CORRECTION, false);  // false = rotate RIGHT
+        delay(80);
+        return;
+    }
+
+    if (tooCloseRight) {
+        // Too close to RIGHT wall -> rotate slightly LEFT to back away
+        Serial.print("  [CLEARANCE WARNING] RIGHT wall too close: ");
+        Serial.print(distR, 1);
+        Serial.print(" cm (min: ");
+        Serial.print(MIN_WALL_CLEARANCE_CM, 1);
+        Serial.print(" cm) --> Rotating ");
+        Serial.print(WALL_CORRECTION_DEG, 1);
+        Serial.println(" deg LEFT to correct...");
+        rotateCounts(COUNTS_FOR_CORRECTION, true);   // true = rotate LEFT
+        delay(80);
+        return;
+    }
+    // If neither triggered: both walls are at safe distance, do nothing
+}
+
+// =====================================================
 // AUTONOMOUS MAZE DECISION & NAVIGATION LOGIC
 // =====================================================
 
@@ -622,6 +683,9 @@ DirectionDecision makeDecision(bool leftOpen, bool frontOpen, bool rightOpen) {
 }
 
 void performAutonomousStep() {
+    // ---- SAFETY: Check side wall clearance before each decision step ----
+    checkSideWallClearance();
+
     Serial.println();
     Serial.println("========================================");
     Serial.println(" LASER DISTANCE SENSOR READINGS (cm)");
