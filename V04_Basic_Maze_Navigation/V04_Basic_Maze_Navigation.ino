@@ -14,7 +14,7 @@ volatile long right_encoder_count = 0;
 //encoder pins
 const int left_encoder_pin = 33;
 const int right_encoder_pin = 34;
-const int turn_encoder_value= 500; // Example value for a 90-degree turn 
+const int turn_encoder_value= 530; // Example value for a 90-degree turn 
 const int each_step_encoder_value= 25; // Example value for moving forward a certain distance
 const bool autoMode = true; // Example value for automatic mode
 
@@ -98,7 +98,6 @@ else {
   analogWrite(PWMA, 255);
 }
 
-
 void motorB(int speed, int target_count){
   if(speed>0){
     right_encoder_count = 0;
@@ -119,13 +118,72 @@ void motorB(int speed, int target_count){
     analogWrite(PWMB, 255);
   
 }
+
+void moveBothMotors(int speedA, int targetA,
+                    int speedB, int targetB) {
+
+  left_encoder_count = 0;
+  right_encoder_count = 0;
+
+  // Start Motor A
+  if (speedA > 0) {
+    digitalWrite(AIN1, HIGH);
+    digitalWrite(AIN2, LOW);
+  } else {
+    digitalWrite(AIN1, LOW);
+    digitalWrite(AIN2, HIGH);
+  }
+
+  analogWrite(PWMA, abs(speedA));
+
+
+  // Start Motor B
+  if (speedB > 0) {
+    digitalWrite(BIN1, HIGH);
+    digitalWrite(BIN2, LOW);
+  } else {
+    digitalWrite(BIN1, LOW);
+    digitalWrite(BIN2, HIGH);
+  }
+
+  analogWrite(PWMB, abs(speedB));
+
+
+  // Both motors running
+  while (left_encoder_count < targetA ||
+         right_encoder_count < targetB) {
+
+    // Stop Motor A when it reaches target
+    if (left_encoder_count >= targetA) {
+      digitalWrite(AIN1, HIGH);
+      digitalWrite(AIN2, HIGH);
+      analogWrite(PWMA, 255);
+    }
+
+    // Stop Motor B when it reaches target
+    if (right_encoder_count >= targetB) {
+      digitalWrite(BIN1, HIGH);
+      digitalWrite(BIN2, HIGH);
+      analogWrite(PWMB, 255);
+    }
+  }
+
+  // Make absolutely sure both are stopped
+  digitalWrite(AIN1, HIGH);
+  digitalWrite(AIN2, HIGH);
+  analogWrite(PWMA, 255);
+
+  digitalWrite(BIN1, HIGH);
+  digitalWrite(BIN2, HIGH);
+  analogWrite(PWMB, 255);
+}
 void keep_center(){
   if(r<distance_threshold/2.8 || l<distance_threshold/2.8){
     
   //this function will keep the robot in the center of the path by adjusting the speed of the motors based on the distance readings from the left and right sensors.
   if(r > l){
     //if the left distance is greater than the right distance, it means the robot is closer to the right wall, so we need to turn left
-    motorA(255, each_step_encoder_value); // Example target count
+    motorA(255, each_step_encoder_value); // Exa  mple target count
     motorB(-100, each_step_encoder_value); // Example target count
   }
   else if(l > r){
@@ -137,8 +195,7 @@ void keep_center(){
     }
     else{
     //if both distances are equal, it means the robot is in the center of the path, so we can move forward
-    motorA(255, each_step_encoder_value); // Example target count
-    motorB(255, each_step_encoder_value); // Example target count
+ moveBothMotors(255, each_step_encoder_value*2, 255, each_step_encoder_value*2); // Move forward a bit
   }
 }
 void autonomus(){
@@ -149,22 +206,15 @@ void autonomus(){
     if(f<distance_threshold/1.5 && r<distance_threshold && l<distance_threshold){
       // move forward a bit, then Rotate 180 degrees
 
-      motorA(255, 20); // Example target count
-      motorB(255, 20); // Example target count
+    moveBothMotors(255, 20, -255, 20);
 
-      motorB(-255, turn_encoder_value*2); // Example target count
-      motorA(255, turn_encoder_value*2); // Example target count
+     moveBothMotors(255, turn_encoder_value*2, -255, turn_encoder_value*2); // Rotate 180 degrees
+
+      delay(1000); // Optional delay to allow the robot to complete the turn
 
 
 //GO backward
-      motorA(-150, 200); 
-      motorB(-150, 200);
-      motorA(-150, 200);
-      motorB(-150, 200);
-      motorA(-150, 200); 
-      motorB(-150, 200);
-      motorA(-150, 200); 
-      motorB(-150, 200);
+      moveBothMotors(-255, 600, -255, 600); // Move backward a bit
 
       delay(1000); // Optional delay to allow the robot to complete the turn
 
@@ -176,8 +226,7 @@ void autonomus(){
 
       //Move forward a bit, then Rotate 90 degrees to the right
       
-      motorA(255, extraSteps); // Move forward a bit
-      motorB(255, extraSteps); // Move forward a bit
+      moveBothMotors(255, extraSteps, 255, extraSteps); // Move forward a bit
 
       motorA(255, turn_encoder_value*2);
 
@@ -242,40 +291,10 @@ void autonomus(){
       motorB(255, each_step_encoder_value); // Example target count
       delay(1000);
     }
-    else if(r>distance_threshold){
-      //keep moving forward
-      //move forward a bit, then Rotate 90 degrees to the right
-      motorA(100, extraSteps*3); // Move forward a bit
-      motorB(100, extraSteps*3); // Move forward a bit
-
-
-      motorA(255, turn_encoder_value*2);
-      delay(1000); // Optional delay to allow the robot to complete the turn
-      motorA(255, extraSteps); // Move forward a bit
-      motorB(255, extraSteps); // Move forward a bit
-    }
 
     else{
       keep_center();
     }
-
-
-
-
-   /* if(f<distance_threshold){
-      //check the left and right distance and turn to the side with more space
-     if(l>r){
-        motorB(motorTurnSpeed, turn_encoder_value); // Example target count
-        motorA(-motorTurnSpeed, turn_encoder_value); // Example target count
-
-      }
-      else if(r>l){
-        motorA(motorTurnSpeed, turn_encoder_value); // Example target count
-        motorB(-motorTurnSpeed, turn_encoder_value); // Example target count
-      }
-      
-
-    }*/
 
   }
 }
@@ -313,32 +332,32 @@ void loop() {
   VL53L0X_RangingMeasurementData_t measure;
 
   L_lox.rangingTest(&measure, false);
-  //Serial.print("LEFT: ");
+  Serial.print("LEFT: ");
   if (measure.RangeStatus != 4) { 
     l=measure.RangeMilliMeter;
-    //Serial.print(l);
-    //Serial.print(" mm  ");
+    Serial.print(l);
+    Serial.print(" mm  ");
   } else {
-    //Serial.print(" out of range ");
+    Serial.print(" out of range ");
   }
 
   F_lox.rangingTest(&measure, false);
-  //Serial.print("FORWARD: ");
+  Serial.print("FORWARD: ");
   if (measure.RangeStatus != 4) { 
     f=measure.RangeMilliMeter;
-    //Serial.print(f);
-    //Serial.print(" mm   ");
+    Serial.print(f);
+    Serial.print(" mm   ");
   } else {
-    // Serial.print(" out of range ");
+    Serial.print(" out of range ");
   }
   R_lox.rangingTest(&measure, false);
-  //Serial.print("RIGHT: ");
+  Serial.print("RIGHT: ");
   if (measure.RangeStatus != 4) { 
     r=measure.RangeMilliMeter;
     Serial.print(r);
     Serial.println(" mm   ");
   } else {
-    //Serial.println(" out of range ");
+    Serial.println(" out of range ");
   }
 
   autonomus();
