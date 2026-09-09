@@ -14,13 +14,14 @@ volatile long right_encoder_count = 0;
 // encoder pins
 const int left_encoder_pin = 33;
 const int right_encoder_pin = 34;
-const int turn_encoder_value = 510; // Example value for a 90-degree turn
-const int each_step_encoder_value =
-    50; // Example value for moving forward a certain distance
+const int turn_encoder_value = 520; // Example value for a 90-degree turn
+const int each_step_encoder_value = 50;
 const bool autoMode = true; // Example value for automatic mode
 
 // Motor A
-const int motorTurnSpeed = 100; // Example speed value for turning
+const int motorTurnSpeed = 150; // Example speed value for turning
+const int motorForwardSpeed = 200;
+const int rest = 150;
 const int extraSteps =
     800; // Example extra steps to move forward before turning
 
@@ -43,7 +44,7 @@ int f = 0;
 int r = 0;
 int l = 0;
 const int distance_threshold = 180; // Example threshold value in millimeters
-const int too_close_distance = 5;
+const int too_close_distance = 7;
 
 void Off_Sensor() {
   digitalWrite(F_Sensor, LOW);
@@ -190,7 +191,8 @@ void keep_center() {
   } else {
     // if both distances are equal, it means the robot is in the center of the
     // path, so we can move forward
-    moveBothMotors(255, each_step_encoder_value * 3, 255,
+    moveBothMotors(motorForwardSpeed, each_step_encoder_value * 3,
+                   motorForwardSpeed,
                    each_step_encoder_value * 3); // Move forward a bit
   }
 }
@@ -201,17 +203,18 @@ void autonomus() {
     // Obstacle avoidance
 
     if (r < too_close_distance) {
-      moveBothMotors(150, each_step_encoder_value, -150,
-                     each_step_encoder_value);
+      moveBothMotors(motorForwardSpeed, each_step_encoder_value,
+                     -motorForwardSpeed, each_step_encoder_value);
     } else if (l < too_close_distance) {
-      moveBothMotors(-150, each_step_encoder_value, 150, 150);
+      moveBothMotors(-motorForwardSpeed, each_step_encoder_value,
+                     motorForwardSpeed, 150);
     } else if (f < too_close_distance) {
-      moveBothMotors(-150, each_step_encoder_value, -150,
-                     each_step_encoder_value);
+      moveBothMotors(-motorForwardSpeed, each_step_encoder_value,
+                     -motorForwardSpeed, each_step_encoder_value);
     } else if (r > distance_threshold / 1.6 && r < distance_threshold &&
                l > distance_threshold) {
-      moveBothMotors(150, each_step_encoder_value, -150,
-                     each_step_encoder_value);
+      moveBothMotors(motorForwardSpeed, each_step_encoder_value,
+                     -motorForwardSpeed, each_step_encoder_value);
     }
 
     // when all three side blocked, rotate 180 degrees
@@ -220,13 +223,12 @@ void autonomus() {
 
       // Rotate 180 degrees
 
-      moveBothMotors(255, turn_encoder_value * 1.85, -255,
-                     turn_encoder_value * 1.85); // Rotate 180 degrees
+      moveBothMotors(motorTurnSpeed, turn_encoder_value * 2, -motorTurnSpeed,
+                     turn_encoder_value * 2); // Rotate 180 degrees
 
       // GO backward
-      moveBothMotors(-255, 600, -255, 600); // Move backward a bit
-
-      delay(500); // Optional delay to allow the robot to complete the turn
+      moveBothMotors(-motorTurnSpeed, 600, -motorTurnSpeed,
+                     600); // Move backward a bit
 
     }
 
@@ -236,15 +238,16 @@ void autonomus() {
 
       // Move forward a bit, then Rotate 90 degrees to the right
 
-      moveBothMotors(100, extraSteps / 3, 100,
+      moveBothMotors(motorTurnSpeed, extraSteps / 3, motorTurnSpeed,
                      extraSteps / 3); // Move forward a bit
 
-      moveBothMotors(255, turn_encoder_value, -255, turn_encoder_value);
+      moveBothMotors(motorTurnSpeed, turn_encoder_value, -motorTurnSpeed,
+                     turn_encoder_value);
 
-      moveBothMotors(100, extraSteps, 100,
+      moveBothMotors(motorTurnSpeed, extraSteps, motorTurnSpeed,
                      extraSteps); // Move forward a bit
 
-      delay(500); // Optional delay to allow the robot to complete the turn
+      delay(rest); // Optional delay to allow the robot to complete the turn
     }
 
     // When forward and Right is blocked, only left way found
@@ -252,13 +255,14 @@ void autonomus() {
              r < distance_threshold) {
       // Move forward a bit, then Rotate 90 degrees to the left
 
-      moveBothMotors(255, extraSteps / 3, 255, extraSteps / 3);
+      moveBothMotors(motorTurnSpeed, extraSteps / 3, motorTurnSpeed,
+                     extraSteps / 3);
 
       // Rotate 90 degrees to the left
-      moveBothMotors(-255, turn_encoder_value * 1.28, 255,
-                     turn_encoder_value * 1.28);
+      moveBothMotors(-motorTurnSpeed, turn_encoder_value, motorTurnSpeed,
+                     turn_encoder_value);
 
-      delay(1000); // Optional delay to allow the robot to complete the turn
+      delay(rest); // Optional delay to allow the robot to complete the turn
     }
 
     // three way found, chose right side
@@ -267,13 +271,14 @@ void autonomus() {
 
       // move forward a bit, then Rotate 90 degrees to the right
 
-      moveBothMotors(100, extraSteps, 100, extraSteps);
+      moveBothMotors(motorTurnSpeed, extraSteps, motorTurnSpeed, extraSteps);
 
-      delay(500); // Optional delay to allow the robot to complete the turn
+      delay(rest); // Optional delay to allow the robot to complete the turn
 
-      moveBothMotors(255, turn_encoder_value, -255, turn_encoder_value);
+      moveBothMotors(motorTurnSpeed, turn_encoder_value, -motorTurnSpeed,
+                     turn_encoder_value);
 
-      moveBothMotors(100, extraSteps, 100, extraSteps);
+      moveBothMotors(motorTurnSpeed, extraSteps, motorTurnSpeed, extraSteps);
 
     }
 
@@ -282,13 +287,14 @@ void autonomus() {
     else if (f < distance_threshold / 1.5 && r > distance_threshold &&
              l > distance_threshold) {
       // Move Backward a bit then
-      moveBothMotors(-255, each_step_encoder_value, -255,
+      moveBothMotors(-motorTurnSpeed, each_step_encoder_value, -motorTurnSpeed,
                      each_step_encoder_value);
 
       //  Rotate 90 degrees to the right
 
-      moveBothMotors(255, turn_encoder_value, -255, turn_encoder_value);
-      delay(500); // Optional delay to allow the robot to complete the turn
+      moveBothMotors(motorTurnSpeed, turn_encoder_value, -motorTurnSpeed,
+                     turn_encoder_value);
+      delay(rest); // Optional delay to allow the robot to complete the turn
     }
 
     // forward and Right found
@@ -296,14 +302,15 @@ void autonomus() {
     else if (f > distance_threshold / 1.2 && r > distance_threshold &&
              l < distance_threshold) {
       // keep moving forward
-      moveBothMotors(150, extraSteps, 150, extraSteps);
+      moveBothMotors(motorTurnSpeed, extraSteps, motorTurnSpeed, extraSteps);
 
       // turn right
-      moveBothMotors(150, turn_encoder_value, -150, turn_encoder_value);
+      moveBothMotors(motorTurnSpeed, turn_encoder_value, -motorTurnSpeed,
+                     turn_encoder_value);
 
       // move forward
-      moveBothMotors(150, extraSteps, 150, extraSteps);
-      delay(1000);
+      moveBothMotors(motorTurnSpeed, extraSteps, motorTurnSpeed, extraSteps);
+      delay(rest);
     }
 
     else {
