@@ -15,7 +15,7 @@ volatile long right_encoder_count = 0;
 const int left_encoder_pin = 33;
 const int right_encoder_pin = 34;
 const int turn_encoder_value = 520; // Example value for a 90-degree turn
-const int each_step_encoder_value = 50;
+const int each_step_encoder_value = 10;
 const bool autoMode = true; // Example value for automatic mode
 
 // Motor A
@@ -116,7 +116,51 @@ void motorB(int speed, int target_count) {
   analogWrite(PWMB, 255);
 }
 
+void brakeBothMotors() {
+  digitalWrite(AIN1, HIGH);
+  digitalWrite(AIN2, HIGH);
+  analogWrite(PWMA, 255);
+
+  digitalWrite(BIN1, HIGH);
+  digitalWrite(BIN2, HIGH);
+  analogWrite(PWMB, 255);
+}
+
+void moveBothMotorsWithoutBreak(int speedA, int targetA, int speedB,
+                                int targetB) {
+  left_encoder_count = 0;
+  right_encoder_count = 0;
+
+  // Start Motor A
+  if (speedA > 0) {
+    digitalWrite(AIN1, HIGH);
+    digitalWrite(AIN2, LOW);
+  } else {
+    digitalWrite(AIN1, LOW);
+    digitalWrite(AIN2, HIGH);
+  }
+  analogWrite(PWMA, abs(speedA));
+
+  // Start Motor B
+  if (speedB > 0) {
+    digitalWrite(BIN1, HIGH);
+    digitalWrite(BIN2, LOW);
+  } else {
+    digitalWrite(BIN1, LOW);
+    digitalWrite(BIN2, HIGH);
+  }
+  analogWrite(PWMB, abs(speedB));
+
+  // Run until encoder targets are reached without applying brakes
+  while (left_encoder_count < targetA || right_encoder_count < targetB) {
+  }
+}
+
 void moveBothMotors(int speedA, int targetA, int speedB, int targetB) {
+
+  // Ensure robot stops completely from forward glide before turning or stepping
+  brakeBothMotors();
+  delay(rest);
 
   left_encoder_count = 0;
   right_encoder_count = 0;
@@ -189,11 +233,9 @@ void keep_center() {
     }
 
   } else {
-    // if both distances are equal, it means the robot is in the center of the
-    // path, so we can move forward
-    moveBothMotors(motorForwardSpeed, each_step_encoder_value * 3,
-                   motorForwardSpeed,
-                   each_step_encoder_value * 3); // Move forward a bit
+    // In center of corridor: glide forward smoothly without applying brakes!
+    moveBothMotorsWithoutBreak(motorForwardSpeed, each_step_encoder_value,
+                               motorForwardSpeed, each_step_encoder_value);
   }
 }
 void autonomus() {
@@ -311,6 +353,13 @@ void autonomus() {
       // move forward
       moveBothMotors(motorTurnSpeed, extraSteps, motorTurnSpeed, extraSteps);
       delay(rest);
+    }
+
+    // when only forward way is open (straight corridor with walls on Left &
+    // Right)
+    else if (f > distance_threshold && r < distance_threshold &&
+             l < distance_threshold) {
+      keep_center();
     }
 
     else {
